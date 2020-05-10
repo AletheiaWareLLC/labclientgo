@@ -21,4 +21,7 @@ set -x
 go fmt $GOPATH/src/github.com/AletheiaWareLLC/{labclientgo,labclientgo/...}
 go vet $GOPATH/src/github.com/AletheiaWareLLC/{labclientgo,labclientgo/...}
 go test $GOPATH/src/github.com/AletheiaWareLLC/{labclientgo,labclientgo/...}
-fyne-cross --targets=android/*,darwin/*,linux/*,windows/* $GOPATH/src/github.com/AletheiaWareLLC/labclientgo/cmd
+fyne-cross android $GOPATH/src/github.com/AletheiaWareLLC/labclientgo/cmd/
+fyne-cross darwin $GOPATH/src/github.com/AletheiaWareLLC/labclientgo/cmd/
+fyne-cross linux $GOPATH/src/github.com/AletheiaWareLLC/labclientgo/cmd/
+fyne-cross windows $GOPATH/src/github.com/AletheiaWareLLC/labclientgo/cmd/
