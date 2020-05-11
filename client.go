@@ -139,6 +139,11 @@ func (c *Client) GetOrOpenDeltaChannel(fileId string) *bcgo.Channel {
 }
 
 func (c *Client) NewNode(alias string, password []byte, callback func(*bcgo.Node)) {
+	// Create Progress Dialog
+	progress := dialog.NewProgress("Registering", "message", c.Window)
+	defer progress.Hide()
+	listener := &ui.ProgressMiningListener{Func: progress.SetValue}
+
 	// Get key store
 	keystore, err := bcgo.GetKeyDirectory(c.Root)
 	if err != nil {
@@ -158,19 +163,6 @@ func (c *Client) NewNode(alias string, password []byte, callback func(*bcgo.Node
 		Cache:    c.Cache,
 		Network:  c.Network,
 		Channels: make(map[string]*bcgo.Channel),
-	}
-
-	// Create Progress Dialog
-	progress := dialog.NewProgress("Registering", "message", c.Window)
-	c.Dialog = progress
-	listener := &ui.ProgressMiningListener{
-		Func: func(f float64) {
-			if f == 1.0 {
-				progress.Hide()
-			} else {
-				progress.SetValue(f)
-			}
-		},
 	}
 
 	// Register Alias
