@@ -44,13 +44,14 @@ func (res *ThemedResource) Content() []byte {
 	// TODO log.Println("ThemedResource.Content")
 	background := colorToHexString(fyne.CurrentApp().Settings().Theme().BackgroundColor())
 	icon := colorToHexString(fyne.CurrentApp().Settings().Theme().IconColor())
-	primary := colorToHexString(fyne.CurrentApp().Settings().Theme().PrimaryColor())
-	textsize := strconv.Itoa(fyne.CurrentApp().Settings().Theme().TextSize())
+	primary := "#0fff" //colorToHexString(fyne.CurrentApp().Settings().Theme().PrimaryColor())
+	textsize := fyne.CurrentApp().Settings().Theme().TextSize()
 	svg := string(res.source.Content())
 	svg = strings.ReplaceAll(svg, "background", background)
+	svg = strings.ReplaceAll(svg, "flasksize", strconv.Itoa(textsize*2))
 	svg = strings.ReplaceAll(svg, "icon", icon)
 	svg = strings.ReplaceAll(svg, "primary", primary)
-	svg = strings.ReplaceAll(svg, "textsize", textsize)
+	svg = strings.ReplaceAll(svg, "textsize", strconv.Itoa(textsize*3))
 	// TODO cache until theme changes
 	return []byte(svg)
 }

@@ -16,5 +16,5 @@
         <path d="M 320,60 L 342,60 A 30 30 0 0 1 342 120 L 320,120 L 350,120 A 30 30 0 0 1 350 180 L 320,180 L 320,60" />
     </g>
     <!-- Erlenmeyer -->
-    <path d="M 226,90 L 254,90 M 230,90 L 230,120 L 190,190 L 290,190 L 250,120 L 250,90 Z" fill="background" stroke="background" stroke-linecap="round" stroke-linejoin="round" stroke-width="6" />
+    <path d="M 226,90 L 254,90 M 230,90 L 230,120 L 190,190 L 290,190 L 250,120 L 250,90 Z" fill="background" stroke="background" stroke-linecap="round" stroke-linejoin="round" stroke-width="flasksize" />
 </svg>
