@@ -71,12 +71,12 @@ func (e *DeltaEditor) PasteFromClipboard(clipboard fyne.Clipboard) {
 		Offset: e.Cursor,
 		Add:    []byte(clipboard.Content()),
 	}
-	if e.Selecting {
+	if e.IsSelecting {
 		if e.Selection < delta.Offset {
 			delta.Offset = e.Selection
 		}
 		delta.Remove = []byte(e.SelectedText())
-		e.Selecting = false
+		e.IsSelecting = false
 	}
 	e.Unlock()
 	lastRecordId := e.Order[len(e.Order)-1]

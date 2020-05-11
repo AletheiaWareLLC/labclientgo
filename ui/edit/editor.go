@@ -32,19 +32,19 @@ import (
 type Editor struct {
 	widget.BaseWidget
 	sync.Mutex
-	Cursor, Selection uint64
+	Cursor      uint64
+	Selection   uint64
+	IsSelecting bool
+	IsFocused   bool
+	TextAlign   fyne.TextAlign
+	TextColor   color.Color
+	TextSize    int
+	TextStyle   fyne.TextStyle
+	TextWrap    fyne.TextWrap
+	Buffer      []rune
+	Lines       [][2]int
 
-	Buffer []rune
-	Lines  [][2]int
-
-	TextAlign fyne.TextAlign
-	TextColor color.Color
-	TextSize  int
-	TextStyle fyne.TextStyle
-	TextWrap  fyne.TextWrap
-
-	shortcut            fyne.ShortcutHandler
-	Focusing, Selecting bool
+	shortcut fyne.ShortcutHandler
 }
 
 func NewEditor() *Editor {
@@ -206,17 +206,17 @@ func lineBounds(text []rune, wrap fyne.TextWrap, maxWidth int, measurer func([]r
 }
 
 func (e *Editor) FocusGained() {
-	e.Focusing = true
+	e.IsFocused = true
 	e.Refresh()
 }
 
 func (e *Editor) FocusLost() {
-	e.Focusing = false
+	e.IsFocused = false
 	e.Refresh()
 }
 
 func (e *Editor) Focused() bool {
-	return e.Focusing
+	return e.IsFocused
 }
 
 func (e *Editor) Tapped(event *fyne.PointEvent) {
@@ -290,7 +290,7 @@ func (e *Editor) TypedShortcut(shortcut fyne.Shortcut) {
 
 func (e *Editor) CutToClipboard(clipboard fyne.Clipboard) {
 	log.Println("Editor.CutToClipboard:", clipboard)
-	if !e.Selecting {
+	if !e.IsSelecting {
 		return
 	}
 	clipboard.SetContent(e.SelectedText())
@@ -299,7 +299,7 @@ func (e *Editor) CutToClipboard(clipboard fyne.Clipboard) {
 
 func (e *Editor) CopyToClipboard(clipboard fyne.Clipboard) {
 	log.Println("Editor.CopyToClipboard:", clipboard)
-	if !e.Selecting {
+	if !e.IsSelecting {
 		return
 	}
 	clipboard.SetContent(e.SelectedText())
@@ -321,7 +321,7 @@ func (e *Editor) EraseSelection() {
 }
 
 func (e *Editor) SelectedText() string {
-	if !e.Selecting {
+	if !e.IsSelecting {
 		return ""
 	}
 	e.Lock()
