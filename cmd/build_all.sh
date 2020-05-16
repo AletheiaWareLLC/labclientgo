@@ -26,3 +26,7 @@ fyne-cross android ./cmd/ >./fyne-cross/logs/android 2>&1 &
 fyne-cross darwin ./cmd/ >./fyne-cross/logs/darwin 2>&1 &
 fyne-cross linux ./cmd/ >./fyne-cross/logs/linux 2>&1 &
 fyne-cross windows ./cmd/ >./fyne-cross/logs/windows 2>&1 &
+for job in `jobs -p`
+do
+    wait $job
+done

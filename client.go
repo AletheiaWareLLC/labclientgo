@@ -44,12 +44,9 @@ type Client struct {
 func (c *Client) GetExperiment() *labgo.Experiment {
 	if c.Experiment == nil {
 		ec := make(chan *labgo.Experiment, 1)
-		go c.ShowExperimentDialog(func(h string, e *labgo.Experiment) {
+		go c.ShowExperimentDialog(func(e *labgo.Experiment) {
 			if n, ok := c.Network.(*bcgo.TCPNetwork); ok {
 				go labgo.Serve(c.Node, c.Cache, n)
-				if h != "" && h != "localhost" {
-					n.Connect(h, []byte("test"))
-				}
 			}
 			ec <- e
 		})
@@ -188,7 +185,7 @@ func (c *Client) ShowExperiment() {
 	c.Window.SetMainMenu(mainMenu)
 }
 
-func (c *Client) ShowExperimentDialog(callback func(string, *labgo.Experiment)) {
+func (c *Client) ShowExperimentDialog(callback func(*labgo.Experiment)) {
 	log.Println("ShowExperimentDialog")
 	create := experiment.NewCreateExperiment(c.Window)
 	join := experiment.NewJoinExperiment()
@@ -222,7 +219,7 @@ func (c *Client) ShowExperimentDialog(callback func(string, *labgo.Experiment)) 
 				dialog.ShowError(err, c.Window)
 				return
 			}
-			callback("localhost", experiment)
+			callback(experiment)
 		}()
 	}
 	join.JoinButton.OnTapped = func() {
@@ -230,7 +227,32 @@ func (c *Client) ShowExperimentDialog(callback func(string, *labgo.Experiment)) 
 		log.Println("Join Tapped")
 		host := join.Host.Text
 		id := join.ID.Text
-		callback(host, &labgo.Experiment{ID: id})
+		go func() {
+			// Connect to host
+			if host != "" && host != "localhost" {
+				if n, ok := c.Network.(*bcgo.TCPNetwork); ok {
+					n.Connect(host, []byte("test"))
+				}
+			}
+			// Create channel
+			p := labgo.OpenPathChannel(id)
+			// Load channel
+			if err := p.LoadCachedHead(c.Cache); err != nil {
+				log.Println(err)
+			}
+			if c.Network != nil {
+				// Pull channel from network
+				if err := p.Pull(c.Cache, c.Network); err != nil {
+					log.Println(err)
+				}
+			}
+			// Add channel to node
+			c.GetNode().AddChannel(p)
+			callback(&labgo.Experiment{
+				ID:   id,
+				Path: p,
+			})
+		}()
 	}
 	c.Dialog.Show()
 }

@@ -54,13 +54,17 @@ func main() {
 	// Create network of peers
 	network := bcgo.NewTCPNetwork()
 
+	// Create node
 	node, err := bcgo.GetNode(rootDir, cache, network)
 	if err != nil {
 		log.Fatal("Could not create node: %w", err)
 	}
+
+	// Create listener
 	listener := &bcgo.PrintingMiningListener{Output: os.Stdout}
-	fileId := "LabTest"
-	channel := bcgo.OpenPoWChannel(labgo.LAB_PREFIX_FILE+fileId, labgo.CHANNEL_THRESHOLD)
+
+	// Create channel
+	channel := bcgo.OpenPoWChannel(labgo.LAB_PREFIX_FILE+"LabTest", labgo.CHANNEL_THRESHOLD)
 
 	// Load channel
 	if err := channel.LoadCachedHead(node.Cache); err != nil {
@@ -83,7 +87,7 @@ func main() {
 
 	// Create window
 	window := app.NewWindow("LAB")
-	/**/ window.SetContent(editor) /**/
+	window.SetContent(editor)
 	window.Resize(fyne.NewSize(800, 600))
 	window.CenterOnScreen()
 	window.ShowAndRun()
