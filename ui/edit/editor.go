@@ -42,7 +42,7 @@ type Editor struct {
 	TextStyle   fyne.TextStyle
 	TextWrap    fyne.TextWrap
 	Buffer      []rune
-	Lines       [][2]int
+	Lines       []*Line
 
 	shortcut fyne.ShortcutHandler
 }
@@ -96,20 +96,25 @@ func (e *Editor) Refresh() {
 	e.BaseWidget.Refresh()
 }
 
+func (e *Editor) SetText(text string) {
+	e.Buffer = []rune(text)
+	e.Refresh()
+}
+
 // splitLines accepts a slice of runes and returns a slice containing the
 // start and end indicies of each line delimited by the newline character.
-func splitLines(text []rune) [][2]int {
+func splitLines(text []rune) []*Line {
 	var low, high int
-	var Lines [][2]int
+	var Lines []*Line
 	length := len(text)
 	for i := 0; i < length; i++ {
 		if text[i] == '\n' {
 			high = i
-			Lines = append(Lines, [2]int{low, high})
+			Lines = append(Lines, &Line{start: low, end: high})
 			low = i + 1
 		}
 	}
-	return append(Lines, [2]int{low, length})
+	return append(Lines, &Line{start: low, end: length})
 }
 
 // binarySearch accepts a function that checks if the text width less the maximum width and the start and end rune index
@@ -152,7 +157,7 @@ func findSpaceIndex(text []rune, fallback int) int {
 
 // lineBounds accepts a slice of runes, a wrapping mode, a maximum line width and a function to measure line width.
 // lineBounds returns a slice containing the start and end indicies of each line with the given wrapping applied.
-func lineBounds(text []rune, wrap fyne.TextWrap, maxWidth int, measurer func([]rune) int) [][2]int {
+func lineBounds(text []rune, wrap fyne.TextWrap, maxWidth int, measurer func([]rune) int) []*Line {
 
 	Lines := splitLines(text)
 	if maxWidth <= 0 || wrap == fyne.TextWrapOff {
@@ -163,10 +168,10 @@ func lineBounds(text []rune, wrap fyne.TextWrap, maxWidth int, measurer func([]r
 		return measurer(text[low:high]) <= maxWidth
 	}
 
-	var bounds [][2]int
+	var bounds []*Line
 	for _, l := range Lines {
-		low := l[0]
-		high := l[1]
+		low := l.start
+		high := l.end
 		if low == high {
 			bounds = append(bounds, l)
 			continue
@@ -174,13 +179,13 @@ func lineBounds(text []rune, wrap fyne.TextWrap, maxWidth int, measurer func([]r
 		switch wrap {
 		case fyne.TextTruncate:
 			high = binarySearch(checker, low, high)
-			bounds = append(bounds, [2]int{low, high})
+			bounds = append(bounds, &Line{start: low, end: high})
 		case fyne.TextWrapBreak:
 			for low < high {
 				if measurer(text[low:high]) <= maxWidth {
-					bounds = append(bounds, [2]int{low, high})
+					bounds = append(bounds, &Line{start: low, end: high})
 					low = high
-					high = l[1]
+					high = l.end
 				} else {
 					high = binarySearch(checker, low, high)
 				}
@@ -189,9 +194,9 @@ func lineBounds(text []rune, wrap fyne.TextWrap, maxWidth int, measurer func([]r
 			for low < high {
 				sub := text[low:high]
 				if measurer(sub) <= maxWidth {
-					bounds = append(bounds, [2]int{low, high})
+					bounds = append(bounds, &Line{start: low, end: high})
 					low = high
-					high = l[1]
+					high = l.end
 					if low < high && unicode.IsSpace(text[low]) {
 						low++
 					}
@@ -271,6 +276,7 @@ func (e *Editor) KeyDown(event *fyne.KeyEvent) {
 func (e *Editor) KeyUp(event *fyne.KeyEvent) {
 	log.Println("Editor.KeyUp:", event)
 	// TODO
+	e.Refresh()
 }
 
 func (e *Editor) TypedKey(event *fyne.KeyEvent) {
@@ -344,8 +350,8 @@ func (e *Editor) updateCursor(event *fyne.PointEvent) {
 		row = len(e.Lines) - 1
 	}
 	line := e.Lines[row]
-	e.Cursor = uint64(line[0])
-	text := e.Buffer[line[0]:line[1]]
+	e.Cursor = uint64(line.start)
+	text := e.Buffer[line.start:line.end]
 	style := e.TextStyle
 	size := e.TextSize
 	for i := 0; i < len(text); i++ {
@@ -383,12 +389,12 @@ type EditorRenderer struct {
 }
 
 func (r *EditorRenderer) Layout(size fyne.Size) {
-	//log.Println("EditorRenderer.Layout:", size)
+	log.Println("EditorRenderer.Layout:", size)
 	if r.cursor.Visible() {
 		cursor := r.editor.Cursor
 		for i, line := range r.editor.Lines {
-			if uint64(line[0]) <= cursor && uint64(line[1]) >= cursor {
-				text := string(r.editor.Buffer[line[0]:cursor])
+			if uint64(line.start) <= cursor && uint64(line.end) >= cursor {
+				text := string(r.editor.Buffer[line.start:cursor])
 				size := fyne.MeasureText(text, r.editor.TextSize, r.editor.TextStyle)
 				r.cursor.Resize(fyne.NewSize(2, size.Height))
 				r.cursor.Move(fyne.NewPos(size.Width-1+theme.Padding(), size.Height*i+theme.Padding()))
@@ -419,18 +425,15 @@ func (r *EditorRenderer) MinSize() (size fyne.Size) {
 	}
 	size.Width += theme.Padding() * 2
 	size.Height += theme.Padding() * 2
-	//log.Println("EditorRenderer.MinSize:", size)
+	log.Println("EditorRenderer.MinSize:", size)
 	return
 }
 
 func (r *EditorRenderer) Refresh() {
-	//log.Println("EditorRenderer.Refresh")
+	log.Println("EditorRenderer.Refresh")
 	r.editor.Lock()
 	index := 0
 	for ; index < len(r.editor.Lines); index++ {
-		bounds := r.editor.Lines[index]
-		line := string(r.editor.Buffer[bounds[0]:bounds[1]])
-
 		var textCanvas *canvas.Text
 		if index < len(r.texts) {
 			textCanvas = r.texts[index]
@@ -439,7 +442,10 @@ func (r *EditorRenderer) Refresh() {
 			r.texts = append(r.texts, textCanvas)
 			r.objects = append(r.objects, textCanvas)
 		}
-		textCanvas.Text = line
+		line := r.editor.Lines[index]
+		textCanvas.Text = string(r.editor.Buffer[line.start:line.end])
+		log.Println("Text:", textCanvas.Text)
+		textCanvas.Show()
 	}
 	r.editor.Unlock()
 
@@ -462,7 +468,11 @@ func (r *EditorRenderer) Refresh() {
 	}
 
 	r.Layout(r.editor.Size())
+	log.Println("canvas.Refresh")
 	canvas.Refresh(r.editor)
+	for _, t := range r.texts {
+		canvas.Refresh(t)
+	}
 }
 
 func (r *EditorRenderer) BackgroundColor() color.Color {
@@ -474,4 +484,8 @@ func (r *EditorRenderer) Objects() []fyne.CanvasObject {
 }
 
 func (r *EditorRenderer) Destroy() {
+}
+
+type Line struct {
+	start, end int
 }

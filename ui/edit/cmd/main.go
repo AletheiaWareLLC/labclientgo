@@ -19,13 +19,11 @@ package main
 import (
 	"fyne.io/fyne"
 	"fyne.io/fyne/app"
-	"fyne.io/fyne/layout"
-	"fyne.io/fyne/widget"
-	"github.com/AletheiaWareLLC/bcclientgo"
-	"github.com/AletheiaWareLLC/bcfynego"
 	"github.com/AletheiaWareLLC/bcgo"
-	"github.com/AletheiaWareLLC/labclientgo"
+	"github.com/AletheiaWareLLC/labclientgo/ui/edit"
+	"github.com/AletheiaWareLLC/labgo"
 	"log"
+	"os"
 )
 
 func main() {
@@ -56,40 +54,37 @@ func main() {
 	// Create network of peers
 	network := bcgo.NewTCPNetwork()
 
+	node, err := bcgo.GetNode(rootDir, cache, network)
+	if err != nil {
+		log.Fatal("Could not create node: %w", err)
+	}
+	listener := &bcgo.PrintingMiningListener{Output: os.Stdout}
+	fileId := "LabTest"
+	channel := bcgo.OpenPoWChannel(labgo.LAB_PREFIX_FILE+fileId, labgo.CHANNEL_THRESHOLD)
+
+	// Load channel
+	if err := channel.LoadCachedHead(node.Cache); err != nil {
+		log.Println("Could not load head from cache:", err)
+	}
+	if node.Network != nil {
+		// Pull channel from network
+		if err := channel.Pull(node.Cache, node.Network); err != nil {
+			log.Println("Could not load head from network:", err)
+		}
+	}
+	// Add channel to node
+	node.AddChannel(channel)
+
 	// Create application
-	a := app.New()
+	app := app.New()
+
+	// Create editor
+	editor := edit.NewChannelEditor(node, listener, channel)
 
 	// Create window
-	w := a.NewWindow("LAB")
-	w.SetMaster()
-
-	// Create Lab client
-	c := &labclientgo.Client{
-		Client: bcfynego.Client{
-			Client: bcclientgo.Client{
-				Root:    rootDir,
-				Cache:   cache,
-				Network: network,
-			},
-			App:    a,
-			Window: w,
-		},
-	}
-
-	logo := c.GetLogo()
-
-	nodeButton := widget.NewButton("Node", func() {
-		go c.ShowNode()
-	})
-
-	experimentButton := widget.NewButton("Experiment", func() {
-		go c.ShowExperiment()
-	})
-
-	w.SetContent(fyne.NewContainerWithLayout(layout.NewBorderLayout(logo, nil, nil, nil), logo, widget.NewAccordionContainer(
-		widget.NewAccordionItem("Node", nodeButton),
-		widget.NewAccordionItem("Experiment", experimentButton))))
-	w.Resize(fyne.NewSize(800, 600))
-	w.CenterOnScreen()
-	w.ShowAndRun()
+	window := app.NewWindow("LAB")
+	/**/ window.SetContent(editor) /**/
+	window.Resize(fyne.NewSize(800, 600))
+	window.CenterOnScreen()
+	window.ShowAndRun()
 }

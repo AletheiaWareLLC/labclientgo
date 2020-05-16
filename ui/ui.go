@@ -15,13 +15,3 @@
  */
 
 package ui
-
-import (
-	"fyne.io/fyne"
-)
-
-func ShortcutFocused(s fyne.Shortcut, w fyne.Window) {
-	if focused, ok := w.Canvas().Focused().(fyne.Shortcutable); ok {
-		focused.TypedShortcut(s)
-	}
-}

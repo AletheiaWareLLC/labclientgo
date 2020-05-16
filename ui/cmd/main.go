@@ -14,22 +14,19 @@
  * limitations under the License.
  */
 
-package ui
+package main
 
-import "github.com/AletheiaWareLLC/bcgo"
+import (
+	"fyne.io/fyne"
+	"fyne.io/fyne/app"
+	"github.com/AletheiaWareLLC/bcfynego/ui/account"
+)
 
-type ProgressMiningListener struct {
-	Func func(f float64)
-}
-
-func (p *ProgressMiningListener) OnMiningStarted(channel *bcgo.Channel, size uint64) {
-	p.Func(0.0)
-}
-
-func (p *ProgressMiningListener) OnNewMaxOnes(channel *bcgo.Channel, nonce, ones uint64) {
-	p.Func(float64(ones) / 512.0)
-}
-
-func (p *ProgressMiningListener) OnMiningThresholdReached(channel *bcgo.Channel, hash []byte, block *bcgo.Block) {
-	p.Func(1.0)
+func main() {
+	app := app.New()
+	window := app.NewWindow("LAB UI")
+	window.SetContent(account.NewSignIn().CanvasObject())
+	window.Resize(fyne.NewSize(800, 600))
+	window.CenterOnScreen()
+	window.ShowAndRun()
 }

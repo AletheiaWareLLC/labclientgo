@@ -17,20 +17,17 @@
 package labclientgo
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
 	"fyne.io/fyne"
 	"fyne.io/fyne/canvas"
 	"fyne.io/fyne/dialog"
 	"fyne.io/fyne/layout"
-	//"fyne.io/fyne/theme"
+	"fyne.io/fyne/storage"
 	"fyne.io/fyne/widget"
-	"github.com/AletheiaWareLLC/aliasgo"
+	"github.com/AletheiaWareLLC/bcfynego"
+	bcui "github.com/AletheiaWareLLC/bcfynego/ui"
+	bcdata "github.com/AletheiaWareLLC/bcfynego/ui/data"
 	"github.com/AletheiaWareLLC/bcgo"
-	"github.com/AletheiaWareLLC/cryptogo"
-	"github.com/AletheiaWareLLC/labclientgo/ui"
-	"github.com/AletheiaWareLLC/labclientgo/ui/account"
 	"github.com/AletheiaWareLLC/labclientgo/ui/data"
 	"github.com/AletheiaWareLLC/labclientgo/ui/edit"
 	"github.com/AletheiaWareLLC/labclientgo/ui/experiment"
@@ -39,57 +36,9 @@ import (
 	"os"
 )
 
-const (
-	MIN_PASSWORD                 = 12
-	ERROR_PASSWORD_TOO_SHORT     = "Password Too Short: %d Minimum: %d"
-	ERROR_PASSWORDS_DO_NOT_MATCH = "Passwords Do Not Match"
-)
-
 type Client struct {
-	Root       string
-	Cache      bcgo.Cache
-	Network    bcgo.Network
-	Node       *bcgo.Node
+	bcfynego.Client
 	Experiment *labgo.Experiment
-	App        fyne.App
-	Window     fyne.Window
-	Dialog     dialog.Dialog
-}
-
-func (c *Client) ExistingNode(alias string, password []byte, callback func(*bcgo.Node)) {
-	// Get key store
-	keystore, err := bcgo.GetKeyDirectory(c.Root)
-	if err != nil {
-		c.ShowError(err)
-		return
-	}
-	// Get private key
-	key, err := cryptogo.GetRSAPrivateKey(keystore, alias, password)
-	if err != nil {
-		c.ShowError(err)
-		return
-	}
-	// Create node
-	node := &bcgo.Node{
-		Alias:    alias,
-		Key:      key,
-		Cache:    c.Cache,
-		Network:  c.Network,
-		Channels: make(map[string]*bcgo.Channel),
-	}
-
-	callback(node)
-}
-
-func (c *Client) GetNode() *bcgo.Node {
-	if c.Node == nil {
-		nc := make(chan *bcgo.Node, 1)
-		go c.ShowAccessDialog(func(n *bcgo.Node) {
-			nc <- n
-		})
-		c.Node = <-nc
-	}
-	return c.Node
 }
 
 func (c *Client) GetExperiment() *labgo.Experiment {
@@ -105,13 +54,15 @@ func (c *Client) GetExperiment() *labgo.Experiment {
 			ec <- e
 		})
 		c.Experiment = <-ec
+		c.Window.SetTitle("LAB - " + c.Experiment.ID)
 	}
 	return c.Experiment
 }
 
 func (c *Client) GetLogo() fyne.CanvasObject {
 	return &canvas.Image{
-		Resource: data.NewThemedResource(data.LogoUnmasked),
+		Resource: bcdata.NewThemedResource(data.LogoUnmasked),
+		//FillMode: canvas.ImageFillContain,
 		FillMode: canvas.ImageFillOriginal,
 	}
 }
@@ -138,123 +89,6 @@ func (c *Client) GetOrOpenDeltaChannel(fileId string) *bcgo.Channel {
 	return channel
 }
 
-func (c *Client) NewNode(alias string, password []byte, callback func(*bcgo.Node)) {
-	// Create Progress Dialog
-	progress := dialog.NewProgress("Registering", "message", c.Window)
-	defer progress.Hide()
-	listener := &ui.ProgressMiningListener{Func: progress.SetValue}
-
-	// Get key store
-	keystore, err := bcgo.GetKeyDirectory(c.Root)
-	if err != nil {
-		c.ShowError(err)
-		return
-	}
-	// Create private key
-	key, err := cryptogo.CreateRSAPrivateKey(keystore, alias, password)
-	if err != nil {
-		c.ShowError(err)
-		return
-	}
-	// Create node
-	node := &bcgo.Node{
-		Alias:    alias,
-		Key:      key,
-		Cache:    c.Cache,
-		Network:  c.Network,
-		Channels: make(map[string]*bcgo.Channel),
-	}
-
-	// Register Alias
-	if err := aliasgo.Register(node, listener); err != nil {
-		c.ShowError(err)
-		return
-	}
-
-	callback(node)
-}
-
-func (c *Client) ShowAccessDialog(callback func(*bcgo.Node)) {
-	signIn := account.NewSignIn()
-	signUp := account.NewSignUp()
-
-	var content fyne.CanvasObject
-	if c.App.Driver().Device().IsMobile() {
-		content = widget.NewVBox(
-			c.GetLogo(),
-			widget.NewTabContainer(
-				widget.NewTabItem("Sign In", signIn),
-				widget.NewTabItem("Sign Up", signUp),
-			),
-		)
-	} else {
-		content = fyne.NewContainerWithLayout(
-			layout.NewCenterLayout(),
-			fyne.NewContainerWithLayout(
-				layout.NewGridLayout(2),
-				widget.NewGroup("Sign In", signIn),
-				widget.NewGroup("Sign Up", signUp),
-			),
-		)
-	}
-	c.Dialog = dialog.NewCustom("Account Access", "Cancel", content, c.Window)
-
-	if alias, err := bcgo.GetAlias(); err == nil {
-		signIn.Alias.SetText(alias)
-	}
-	if pwd, ok := os.LookupEnv("PASSWORD"); ok {
-		signIn.Password.SetText(pwd)
-		// TODO if alias was also set auto click
-	}
-	signIn.SignInButton.OnTapped = func() {
-		c.Dialog.Hide()
-		log.Println("Sign In Tapped")
-		alias := signIn.Alias.Text
-		password := []byte(signIn.Password.Text)
-		if len(password) < MIN_PASSWORD {
-			c.ShowError(errors.New(fmt.Sprintf(ERROR_PASSWORD_TOO_SHORT, len(password), MIN_PASSWORD)))
-			return
-		}
-		c.ExistingNode(alias, password, callback)
-	}
-	signUp.SignUpButton.OnTapped = func() {
-		c.Dialog.Hide()
-		log.Println("Sign Up Tapped")
-		alias := signUp.Alias.Text
-		password := []byte(signUp.Password.Text)
-		confirm := []byte(signUp.Confirm.Text)
-
-		err := aliasgo.ValidateAlias(alias)
-		if err != nil {
-			c.ShowError(err)
-			return
-		}
-
-		if len(password) < MIN_PASSWORD {
-			c.ShowError(errors.New(fmt.Sprintf(ERROR_PASSWORD_TOO_SHORT, len(password), MIN_PASSWORD)))
-			return
-		}
-		if !bytes.Equal(password, confirm) {
-			c.ShowError(errors.New(cryptogo.ERROR_PASSWORDS_DO_NOT_MATCH))
-			return
-		}
-		c.NewNode(alias, password, callback)
-	}
-	c.Dialog.Show()
-}
-
-func (c *Client) ShowAccount() {
-	//
-}
-
-func (c *Client) ShowError(err error) {
-	if c.Dialog != nil {
-		c.Dialog.Hide()
-	}
-	c.Dialog = dialog.NewError(err, c.Window)
-	c.Dialog.Show()
-}
-
 func (c *Client) ShowExperiment() {
 	log.Println("ShowExperiment")
 	experiment := c.GetExperiment()
@@ -262,12 +96,13 @@ func (c *Client) ShowExperiment() {
 	center := tabber
 	items := make(map[string]*widget.TabItem)
 	editors := make(map[string]*edit.ChannelEditor)
+	listener := &bcgo.PrintingMiningListener{Output: os.Stdout}
 
-	tree := edit.NewTree(experiment.Path, c.Cache, c.Network, func(id string, path ...string) {
-		log.Println("Tapped:", id)
+	selectPath := func(id string, path ...string) {
+		log.Println("Selected:", id, path)
 		e, ok := editors[id]
 		if !ok {
-			e = edit.NewChannelEditor(c.GetOrOpenDeltaChannel(id), c.GetNode())
+			e = edit.NewChannelEditor(c.GetNode(), listener, c.GetOrOpenDeltaChannel(id))
 			editors[id] = e
 		}
 		item, ok := items[id]
@@ -286,7 +121,8 @@ func (c *Client) ShowExperiment() {
 			tabber.Resize(tabber.MinSize())
 		}
 
-	})
+	}
+	tree := edit.NewTree(experiment.Path, c.Cache, c.Network, selectPath)
 	left := widget.NewVScrollContainer(tree)
 
 	chat := widget.NewLabel("Chat")
@@ -305,9 +141,16 @@ func (c *Client) ShowExperiment() {
 	newItem.ChildMenu = fyne.NewMenu("",
 		fyne.NewMenuItem("File", func() {
 			fmt.Println("Menu New->File")
+			fmt.Println("Show file open dialog")
+			fmt.Println("Call selectPath(id, path)")
 		}),
-		fyne.NewMenuItem("Directory", func() {
-			fmt.Println("Menu New->Directory")
+		fyne.NewMenuItem("Import", func() {
+			fmt.Println("Menu New->Import")
+			fmt.Println("Show file open dialog")
+		}),
+		fyne.NewMenuItem("Export", func() {
+			fmt.Println("Menu New->Export")
+			fmt.Println("Show file save dialog")
 		}),
 	)
 	settingsItem := fyne.NewMenuItem("Settings", func() {
@@ -315,17 +158,17 @@ func (c *Client) ShowExperiment() {
 	})
 
 	cutItem := fyne.NewMenuItem("Cut", func() {
-		ui.ShortcutFocused(&fyne.ShortcutCut{
+		bcui.ShortcutFocused(&fyne.ShortcutCut{
 			Clipboard: c.Window.Clipboard(),
 		}, c.Window)
 	})
 	copyItem := fyne.NewMenuItem("Copy", func() {
-		ui.ShortcutFocused(&fyne.ShortcutCopy{
+		bcui.ShortcutFocused(&fyne.ShortcutCopy{
 			Clipboard: c.Window.Clipboard(),
 		}, c.Window)
 	})
 	pasteItem := fyne.NewMenuItem("Paste", func() {
-		ui.ShortcutFocused(&fyne.ShortcutPaste{
+		bcui.ShortcutFocused(&fyne.ShortcutPaste{
 			Clipboard: c.Window.Clipboard(),
 		}, c.Window)
 	})
@@ -350,26 +193,11 @@ func (c *Client) ShowExperimentDialog(callback func(string, *labgo.Experiment)) 
 	create := experiment.NewCreateExperiment(c.Window)
 	join := experiment.NewJoinExperiment()
 
-	var content fyne.CanvasObject
-	if c.App.Driver().Device().IsMobile() {
-		content = widget.NewVBox(
-			c.GetLogo(),
-			widget.NewTabContainer(
-				widget.NewTabItem("Join", join),
-				widget.NewTabItem("Create", create),
-			),
-		)
-	} else {
-		content = fyne.NewContainerWithLayout(
-			layout.NewCenterLayout(),
-			fyne.NewContainerWithLayout(
-				layout.NewGridLayout(2),
-				widget.NewGroup("Join", join),
-				widget.NewGroup("Create", create),
-			),
-		)
-	}
-	c.Dialog = dialog.NewCustom("Experiment Access", "Cancel", content, c.Window)
+	c.Dialog = dialog.NewCustom("Experiment Access", "Cancel",
+		widget.NewAccordionContainer(
+			&widget.AccordionItem{Title: "Create", Detail: create.CanvasObject(), Open: true},
+			widget.NewAccordionItem("Join", join.CanvasObject()),
+		), c.Window)
 
 	create.CreateButton.OnTapped = func() {
 		c.Dialog.Hide()
@@ -378,10 +206,10 @@ func (c *Client) ShowExperimentDialog(callback func(string, *labgo.Experiment)) 
 		go func() {
 			progress := dialog.NewProgress("Creating", "message", c.Window)
 			defer progress.Hide()
-			listener := &ui.ProgressMiningListener{Func: progress.SetValue}
+			listener := &bcui.ProgressMiningListener{Func: progress.SetValue}
 			var reader fyne.FileReadCloser
 			if uri != "" {
-				r, err := fyne.OpenFileFromURI(uri)
+				r, err := storage.OpenFileFromURI(storage.NewURI(uri))
 				if err != nil {
 					dialog.ShowError(err, c.Window)
 					return
@@ -405,12 +233,6 @@ func (c *Client) ShowExperimentDialog(callback func(string, *labgo.Experiment)) 
 		callback(host, &labgo.Experiment{ID: id})
 	}
 	c.Dialog.Show()
-}
-
-func (c *Client) ShowNode() {
-	log.Println("ShowNode")
-	node := c.GetNode()
-	log.Println("Alias:", node.Alias)
 }
 
 /*

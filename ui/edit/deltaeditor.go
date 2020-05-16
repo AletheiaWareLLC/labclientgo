@@ -52,12 +52,15 @@ func NewDeltaEditor(callback func(parent string, delta *labgo.Delta)) *DeltaEdit
 func (e *DeltaEditor) TypedRune(r rune) {
 	log.Println("DeltaEditor.TypedRune:", r)
 	// TODO add runes to list until timeout or cursor is moved elsewhere, then create file delta
+	var parentRecordId string
 	e.Lock()
 	delta := &labgo.Delta{
 		Offset: e.Cursor,
 		Add:    []byte(string(r)),
 	}
-	parentRecordId := e.Order[len(e.Order)-1]
+	if len(e.Order) > 0 {
+		parentRecordId = e.Order[len(e.Order)-1]
+	}
 	e.Unlock()
 	if e.OnDelta != nil {
 		e.OnDelta(parentRecordId, delta)
@@ -66,6 +69,7 @@ func (e *DeltaEditor) TypedRune(r rune) {
 
 func (e *DeltaEditor) PasteFromClipboard(clipboard fyne.Clipboard) {
 	log.Println("DeltaEditor.PasteFromClipboard:", clipboard)
+	var parentRecordId string
 	e.Lock()
 	delta := &labgo.Delta{
 		Offset: e.Cursor,
@@ -78,10 +82,12 @@ func (e *DeltaEditor) PasteFromClipboard(clipboard fyne.Clipboard) {
 		delta.Remove = []byte(e.SelectedText())
 		e.IsSelecting = false
 	}
+	if len(e.Order) > 0 {
+		parentRecordId = e.Order[len(e.Order)-1]
+	}
 	e.Unlock()
-	lastRecordId := e.Order[len(e.Order)-1]
 	if e.OnDelta != nil {
-		e.OnDelta(lastRecordId, delta)
+		e.OnDelta(parentRecordId, delta)
 	}
 }
 
