@@ -22,11 +22,7 @@ go fmt $GOPATH/src/github.com/AletheiaWareLLC/{labclientgo,labclientgo/...}
 go vet $GOPATH/src/github.com/AletheiaWareLLC/{labclientgo,labclientgo/...}
 go test $GOPATH/src/github.com/AletheiaWareLLC/{labclientgo,labclientgo/...}
 mkdir -p fyne-cross/logs
-fyne-cross android ./cmd/ >./fyne-cross/logs/android 2>&1 &
-fyne-cross darwin ./cmd/ >./fyne-cross/logs/darwin 2>&1 &
-fyne-cross linux ./cmd/ >./fyne-cross/logs/linux 2>&1 &
-fyne-cross windows ./cmd/ >./fyne-cross/logs/windows 2>&1 &
-for job in `jobs -p`
-do
-    wait $job
-done
+fyne-cross android -app-id com.aletheiaware.lab -debug ./cmd/ >./fyne-cross/logs/android 2>&1
+fyne-cross darwin -app-id com.aletheiaware.lab -debug ./cmd/ >./fyne-cross/logs/darwin 2>&1
+fyne-cross linux -app-id com.aletheiaware.lab -debug ./cmd/ >./fyne-cross/logs/linux 2>&1
+fyne-cross windows -app-id com.aletheiaware.lab -debug ./cmd/ >./fyne-cross/logs/windows 2>&1

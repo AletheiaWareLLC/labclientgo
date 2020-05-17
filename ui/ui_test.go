@@ -36,33 +36,33 @@ func Test_UI(t *testing.T) {
 	for name, tt := range map[string]struct {
 		builder func(fyne.Window) fyne.CanvasObject
 	}{
-		"edit_editor": {
+		"edit/editor": {
 			builder: func(w fyne.Window) fyne.CanvasObject {
 				e := edit.NewEditor()
 				e.SetText("Test")
 				return e
 			},
 		},
-		"edit_delta_editor": {
+		"edit/delta_editor": {
 			builder: func(w fyne.Window) fyne.CanvasObject {
 				e := edit.NewDeltaEditor(nil)
 				e.SetText("Test")
 				return e
 			},
 		},
-		"edit_channel_editor": {
+		"edit/channel_editor": {
 			builder: func(w fyne.Window) fyne.CanvasObject {
 				e := edit.NewChannelEditor(nil, nil, nil)
 				e.SetText("Test")
 				return e
 			},
 		},
-		"experiment_create": {
+		"experiment/create": {
 			builder: func(w fyne.Window) fyne.CanvasObject {
 				return experiment.NewCreateExperiment(w).CanvasObject()
 			},
 		},
-		"experiment_join": {
+		"experiment/join": {
 			builder: func(w fyne.Window) fyne.CanvasObject {
 				return experiment.NewJoinExperiment().CanvasObject()
 			},

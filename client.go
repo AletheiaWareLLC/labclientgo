@@ -17,11 +17,9 @@
 package labclientgo
 
 import (
-	"fmt"
 	"fyne.io/fyne"
 	"fyne.io/fyne/canvas"
 	"fyne.io/fyne/dialog"
-	"fyne.io/fyne/layout"
 	"fyne.io/fyne/storage"
 	"fyne.io/fyne/widget"
 	"github.com/AletheiaWareLLC/bcfynego"
@@ -29,7 +27,6 @@ import (
 	bcdata "github.com/AletheiaWareLLC/bcfynego/ui/data"
 	"github.com/AletheiaWareLLC/bcgo"
 	"github.com/AletheiaWareLLC/labclientgo/ui/data"
-	"github.com/AletheiaWareLLC/labclientgo/ui/edit"
 	"github.com/AletheiaWareLLC/labclientgo/ui/experiment"
 	"github.com/AletheiaWareLLC/labgo"
 	"log"
@@ -64,125 +61,17 @@ func (c *Client) GetLogo() fyne.CanvasObject {
 	}
 }
 
-func (c *Client) GetOrOpenDeltaChannel(fileId string) *bcgo.Channel {
-	node := c.GetNode()
-	channel, err := node.GetChannel(labgo.LAB_PREFIX_FILE + fileId)
-	if err != nil {
-		log.Println(err)
-		channel = labgo.OpenFileChannel(fileId)
-		// Load channel
-		if err := channel.LoadCachedHead(c.Cache); err != nil {
-			log.Println(err)
-		}
-		if c.Network != nil {
-			// Pull channel from network
-			if err := channel.Pull(c.Cache, c.Network); err != nil {
-				log.Println(err)
-			}
-		}
-		// Add channel to node
-		node.AddChannel(channel)
-	}
-	return channel
-}
-
 func (c *Client) ShowExperiment() {
 	log.Println("ShowExperiment")
-	experiment := c.GetExperiment()
-	tabber := widget.NewTabContainer()
-	center := tabber
-	items := make(map[string]*widget.TabItem)
-	editors := make(map[string]*edit.ChannelEditor)
-	listener := &bcgo.PrintingMiningListener{Output: os.Stdout}
-
-	selectPath := func(id string, path ...string) {
-		log.Println("Selected:", id, path)
-		e, ok := editors[id]
-		if !ok {
-			e = edit.NewChannelEditor(c.GetNode(), listener, c.GetOrOpenDeltaChannel(id))
-			editors[id] = e
-		}
-		item, ok := items[id]
-		if !ok {
-			name := id
-			if len(path) > 0 {
-				name = path[len(path)-1]
-			}
-			item = widget.NewTabItem(name, widget.NewVScrollContainer(e))
-			items[id] = item
-			tabber.Append(item)
-		}
-		tabber.SelectTab(item)
-		if len(items) == 1 {
-			// First tab, resize tabber
-			tabber.Resize(tabber.MinSize())
-		}
-
-	}
-	tree := edit.NewTree(experiment.Path, c.Cache, c.Network, selectPath)
-	left := widget.NewVScrollContainer(tree)
-
-	chat := widget.NewLabel("Chat")
-	status := widget.NewLabel("Ready")
-	right := fyne.NewContainerWithLayout(layout.NewBorderLayout(nil, status, nil, nil), status, chat)
-
-	splitter := widget.NewHSplitContainer(left, center)
-	splitter.Offset = 0.25
-	//splitter = widget.NewVSplitContainer(splitter, terminal)
-	//splitter.Offset = 0.75
-	splitter = widget.NewHSplitContainer(splitter, right)
-	splitter.Offset = 0.75
-	c.Window.SetContent(splitter)
-
-	newItem := fyne.NewMenuItem("New", nil)
-	newItem.ChildMenu = fyne.NewMenu("",
-		fyne.NewMenuItem("File", func() {
-			fmt.Println("Menu New->File")
-			fmt.Println("Show file open dialog")
-			fmt.Println("Call selectPath(id, path)")
-		}),
-		fyne.NewMenuItem("Import", func() {
-			fmt.Println("Menu New->Import")
-			fmt.Println("Show file open dialog")
-		}),
-		fyne.NewMenuItem("Export", func() {
-			fmt.Println("Menu New->Export")
-			fmt.Println("Show file save dialog")
-		}),
-	)
-	settingsItem := fyne.NewMenuItem("Settings", func() {
-		fmt.Println("Menu Settings")
-	})
-
-	cutItem := fyne.NewMenuItem("Cut", func() {
-		bcui.ShortcutFocused(&fyne.ShortcutCut{
-			Clipboard: c.Window.Clipboard(),
-		}, c.Window)
-	})
-	copyItem := fyne.NewMenuItem("Copy", func() {
-		bcui.ShortcutFocused(&fyne.ShortcutCopy{
-			Clipboard: c.Window.Clipboard(),
-		}, c.Window)
-	})
-	pasteItem := fyne.NewMenuItem("Paste", func() {
-		bcui.ShortcutFocused(&fyne.ShortcutPaste{
-			Clipboard: c.Window.Clipboard(),
-		}, c.Window)
-	})
-	findItem := fyne.NewMenuItem("Find", func() {
-		fmt.Println("Menu Find")
-	})
-
-	helpMenu := fyne.NewMenu("Help", fyne.NewMenuItem("Help", func() {
-		fmt.Println("Help Menu")
-	}))
-	mainMenu := fyne.NewMainMenu(
-		// a quit item will be appended to our first menu
-		fyne.NewMenu("File", newItem, fyne.NewMenuItemSeparator(), settingsItem),
-		fyne.NewMenu("Edit", cutItem, copyItem, pasteItem, fyne.NewMenuItemSeparator(), findItem),
-		helpMenu,
-	)
-	c.Window.SetMainMenu(mainMenu)
+	ui := experiment.NewExperiment(
+		c.GetNode(),
+		&bcgo.PrintingMiningListener{Output: os.Stdout},
+		c.Cache,
+		c.Network,
+		c.GetExperiment(),
+		c.Window)
+	c.Window.SetContent(ui.CanvasObject())
+	c.Window.SetMainMenu(ui.MainMenu())
 }
 
 func (c *Client) ShowExperimentDialog(callback func(*labgo.Experiment)) {

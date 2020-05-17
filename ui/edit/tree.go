@@ -28,7 +28,6 @@ import (
 
 func NewTree(paths *bcgo.Channel, cache bcgo.Cache, network bcgo.Network, callback func(id string, path ...string)) fyne.CanvasObject {
 	tree := widget.NewVBox()
-
 	if paths != nil {
 		trigger := func() {
 			var objects []fyne.CanvasObject
