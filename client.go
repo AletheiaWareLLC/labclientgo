@@ -15,3 +15,6 @@
  */
 
 package labclientgo
+
+type LabClient struct {
+}
